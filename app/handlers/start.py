@@ -46,17 +46,22 @@ def _get_nick(message: Message) -> str:
     return message.from_user.username or str(message.from_user.id)
 
 
+def _get_first_name(message: Message) -> str:
+    return message.from_user.first_name
+
+
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
     nick = _get_nick(message)
+    name = _get_first_name(message)
     user = await backend.get_user(nick)
 
     if user:
-        await message.answer(f"С возвращением, @{nick}! 👋")
+        await message.answer(f"С возвращением, {name}! 👋")
         return
 
     await message.answer(
-        f"Привет, @{nick}! 👋\n\nДобро пожаловать! Выбери свой департамент "
+        f"Привет, {name}! 👋\n\nДобро пожаловать! Выбери свой департамент "
         f"(введи цифру) или нажми «Другой»:\n\n{_DEPT_LIST}",
         reply_markup=_dept_keyboard(),
     )
