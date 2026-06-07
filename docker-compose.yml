@@ -1,0 +1,12 @@
+networks:
+  bank-net:
+    external: true
+
+services:
+  bank-tg:
+    build: .
+    container_name: bank-tg
+    restart: unless-stopped
+    networks:
+      - bank-net
+    env_file: .env
