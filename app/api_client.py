@@ -9,6 +9,8 @@ class BackendClient:
     def __init__(self) -> None:
         self._base = settings.backend_url
 
+    # ── Users ──────────────────────────────────────────────────────────────────
+
     async def get_user(self, telegram_nick: str) -> dict | None:
         async with httpx.AsyncClient() as c:
             r = await c.get(f"{self._base}/users/{telegram_nick}", timeout=10.0)
@@ -27,17 +29,54 @@ class BackendClient:
             r.raise_for_status()
             return r.json()
 
-    async def get_funnels(self) -> list[str]:
+    async def get_all_users(self) -> list[dict]:
+        async with httpx.AsyncClient() as c:
+            r = await c.get(f"{self._base}/users/", timeout=10.0)
+            r.raise_for_status()
+            return r.json()
+
+    # ── Analytics ──────────────────────────────────────────────────────────────
+
+    async def get_funnels(self) -> list[dict]:
         async with httpx.AsyncClient() as c:
             r = await c.get(f"{self._base}/analytics/funnels", timeout=10.0)
             r.raise_for_status()
             return r.json()["funnels"]
 
-    async def get_daily_friction(self, funnel_id: Optional[str] = None) -> dict:
+    async def get_daily_friction(self, funnel_name: str) -> dict:
         async with httpx.AsyncClient() as c:
-            params = {"funnel_id": funnel_id} if funnel_id else {}
             r = await c.get(
-                f"{self._base}/analytics/daily-friction", params=params, timeout=30.0
+                f"{self._base}/analytics/daily-friction",
+                params={"funnel_name": funnel_name},
+                timeout=30.0,
+            )
+            r.raise_for_status()
+            return r.json()
+
+    async def get_services(self) -> list[dict]:
+        async with httpx.AsyncClient() as c:
+            r = await c.get(f"{self._base}/analytics/services", timeout=10.0)
+            r.raise_for_status()
+            return r.json()["services"]
+
+    async def get_service_usage(self, service_name: str, days: int = 10) -> dict:
+        async with httpx.AsyncClient() as c:
+            r = await c.get(
+                f"{self._base}/analytics/service-usage",
+                params={"service_name": service_name, "days": days},
+                timeout=30.0,
+            )
+            r.raise_for_status()
+            return r.json()
+
+    # ── Alerts ─────────────────────────────────────────────────────────────────
+
+    async def assign_alert(self, alert_id: str, department: str) -> dict:
+        async with httpx.AsyncClient() as c:
+            r = await c.post(
+                f"{self._base}/analytics/alerts/assign",
+                json={"alert_id": alert_id, "department": department},
+                timeout=10.0,
             )
             r.raise_for_status()
             return r.json()

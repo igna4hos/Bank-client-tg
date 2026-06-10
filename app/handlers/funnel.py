@@ -12,15 +12,15 @@ async def cmd_funnel(message: Message):
     try:
         funnels = await backend.get_funnels()
     except Exception:
-        await message.answer("Не удалось получить данные от сервера. Попробуй позже.")
+        await message.answer("Не удалось получить данные. Попробуй позже.")
         return
 
     if not funnels:
-        await message.answer("Данных по воронкам пока нет.")
+        await message.answer("Воронок пока нет.")
         return
 
-    lines = [f"{i + 1}\\. `{f}`" for i, f in enumerate(funnels)]
-    await message.answer(
-        "📋 *Список воронок:*\n\n" + "\n".join(lines),
-        parse_mode="MarkdownV2",
-    )
+    lines = ["📋 *Список воронок:*\n"]
+    for i, f in enumerate(funnels, 1):
+        lines.append(f"{i}\\. *{f['funnel_name']}*\n   └ {f['service_name']}")
+
+    await message.answer("\n".join(lines), parse_mode="MarkdownV2")
