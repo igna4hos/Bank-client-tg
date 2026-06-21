@@ -9,7 +9,7 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-_POLL_INTERVAL = 180  # секунды
+_POLL_INTERVAL = 100  # секунды
 _MAX_ALERTS = 3
 
 _SEVERITY_LABEL = {
@@ -20,7 +20,7 @@ _SEVERITY_LABEL = {
 }
 
 
-def _format_alert(alert: dict, index: int, total_new: int) -> str:
+def _format_alert(alert: dict) -> str:
     severity = _SEVERITY_LABEL.get(alert.get("severity", ""), alert.get("severity", ""))
     return (
         f"ID: `{alert['alert_id']}`\n"
@@ -32,7 +32,7 @@ def _format_alert(alert: dict, index: int, total_new: int) -> str:
     )
 
 
-async def _broadcast(bot: Bot, alerts: list[dict], total_new: int) -> None:
+async def _broadcast(bot: Bot, alerts: list[dict]) -> None:
     try:
         users = await backend.get_all_users()
     except Exception as e:
@@ -40,13 +40,9 @@ async def _broadcast(bot: Bot, alerts: list[dict], total_new: int) -> None:
         return
 
     for user in users:
-        for i, alert in enumerate(alerts, 1):
+        for alert in alerts:
             try:
-                await bot.send_message(
-                    user["chat_id"],
-                    _format_alert(alert, i, total_new),
-                    parse_mode="Markdown",
-                )
+                await bot.send_message(user["chat_id"], _format_alert(alert), parse_mode="Markdown")
             except Exception as e:
                 logger.warning("chat_id=%s: %s", user["chat_id"], e)
 
@@ -70,9 +66,8 @@ async def listen_for_alerts(bot: Bot) -> None:
                 logger.info("Alerts listener: стартовый счётчик = %d", current_count)
                 last_count = current_count
             elif new_count > 0:
-                alerts = data["alerts"]
-                logger.info("Обнаружено %d новых аномалий, показываем %d", new_count, len(alerts))
-                await _broadcast(bot, alerts, new_count)
+                logger.info("Обнаружено %d новых аномалий, показываем %d", new_count, len(data["alerts"]))
+                await _broadcast(bot, data["alerts"])
                 last_count = current_count
             else:
                 logger.debug("Новых аномалий нет, счётчик = %d", current_count)
