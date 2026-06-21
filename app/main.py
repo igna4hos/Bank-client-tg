@@ -6,7 +6,8 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 from app.alerts_listener import listen_for_alerts
 from app.config import settings
-from app.handlers import anomaly, ask, daily_friction, funnel, service, start
+from app.handlers import anomaly, ask, do, start
+from app.morning_report import morning_report_scheduler
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -16,13 +17,12 @@ async def main() -> None:
     dp = Dispatcher(storage=MemoryStorage())
 
     dp.include_router(start.router)
-    dp.include_router(funnel.router)
-    dp.include_router(daily_friction.router)
-    dp.include_router(service.router)
+    dp.include_router(do.router)
     dp.include_router(anomaly.router)
     dp.include_router(ask.router)
 
     asyncio.create_task(listen_for_alerts(bot))
+    asyncio.create_task(morning_report_scheduler(bot))
 
     logging.info("Bot started")
     await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())

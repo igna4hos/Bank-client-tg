@@ -69,13 +69,15 @@ class BackendClient:
             r.raise_for_status()
             return r.json()
 
-    async def execute_query(self, sql: str) -> dict:
+    async def get_businesses_by_industry(self) -> dict:
         async with httpx.AsyncClient() as c:
-            r = await c.post(
-                f"{self._base}/analytics/query",
-                json={"sql": sql},
-                timeout=30.0,
-            )
+            r = await c.get(f"{self._base}/analytics/businesses-by-industry", timeout=30.0)
+            r.raise_for_status()
+            return r.json()
+
+    async def get_alerts_daily_summary(self) -> dict:
+        async with httpx.AsyncClient() as c:
+            r = await c.get(f"{self._base}/analytics/alerts/daily-summary", timeout=10.0)
             r.raise_for_status()
             return r.json()
 
@@ -87,6 +89,18 @@ class BackendClient:
                 f"{self._base}/analytics/alerts/assign",
                 json={"alert_id": alert_id, "department": department},
                 timeout=10.0,
+            )
+            r.raise_for_status()
+            return r.json()
+
+    # ── Ask ────────────────────────────────────────────────────────────────────
+
+    async def ask(self, question: str) -> dict:
+        async with httpx.AsyncClient() as c:
+            r = await c.post(
+                f"{self._base}/ask/",
+                json={"question": question},
+                timeout=90.0,
             )
             r.raise_for_status()
             return r.json()
