@@ -9,7 +9,7 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-_POLL_INTERVAL = 180  # 3 минуты
+_POLL_INTERVAL = 180  # секунды
 _MAX_ALERTS = 3
 
 _SEVERITY_LABEL = {
@@ -22,9 +22,7 @@ _SEVERITY_LABEL = {
 
 def _format_alert(alert: dict, index: int, total_new: int) -> str:
     severity = _SEVERITY_LABEL.get(alert.get("severity", ""), alert.get("severity", ""))
-    header = f"⚠️ *Новая аномалия*" + (f" ({index}/{total_new})" if total_new > 1 else "")
     return (
-        f"{header}\n\n"
         f"ID: `{alert['alert_id']}`\n"
         f"Время (МСК): {alert['detected_at_msk']}\n"
         f"Тип: {alert['anomaly_type']}\n"
@@ -69,8 +67,7 @@ async def listen_for_alerts(bot: Bot) -> None:
             new_count = data["new_count"]
 
             if last_count is None:
-                # первый запрос — просто запоминаем точку отсчёта
-                logger.info("SSE listener: стартовый счётчик = %d", current_count)
+                logger.info("Alerts listener: стартовый счётчик = %d", current_count)
                 last_count = current_count
             elif new_count > 0:
                 alerts = data["alerts"]

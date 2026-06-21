@@ -38,10 +38,7 @@ async def _send_report(bot: Bot) -> None:
         logger.error("Не удалось получить данные для утреннего отчёта: %s", e)
         return
 
-    if data["total"] == 0:
-        text = "📊 *Утренний отчёт*\nАномалий за вчера не обнаружено. ✅"
-    else:
-        text = _build_message(data)
+    text = "📊 *Утренний отчёт*\nАномалий за вчера не обнаружено. ✅" if data["total"] == 0 else _build_message(data)
 
     for user in users:
         try:
@@ -51,7 +48,6 @@ async def _send_report(bot: Bot) -> None:
 
 
 async def morning_report_scheduler(bot: Bot) -> None:
-    """Запускает утренний отчёт ежедневно в 08:00 МСК (05:00 UTC)."""
     while True:
         now_msk = datetime.now(_MSK)
         target_msk = now_msk.replace(hour=8, minute=0, second=0, microsecond=0)

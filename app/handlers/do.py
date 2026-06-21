@@ -2,7 +2,7 @@ from aiogram import Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import BufferedInputFile, Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+from aiogram.types import BufferedInputFile, KeyboardButton, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove
 
 from app.api_client import backend
 from app.charts import make_friction_chart, make_industry_chart, make_service_usage_chart
@@ -28,11 +28,9 @@ _NUM_KEYBOARD = ReplyKeyboardMarkup(
 
 class DoState(StatesGroup):
     choosing = State()
-    waiting_screen = State()    # после выбора 2
-    waiting_service = State()   # после выбора 4
+    waiting_screen = State()
+    waiting_service = State()
 
-
-# ── helpers ───────────────────────────────────────────────────────────────────
 
 def _fmt(val: float) -> str:
     return f"{val:.1f} сек"
@@ -60,26 +58,18 @@ async def _show_menu(message: Message, state: FSMContext) -> None:
     await message.answer(_MENU, reply_markup=_NUM_KEYBOARD)
 
 
-# ── /do entry ─────────────────────────────────────────────────────────────────
-
 @router.message(Command("do"))
 async def cmd_do(message: Message, state: FSMContext):
     await _show_menu(message, state)
 
 
-# ── choose action ─────────────────────────────────────────────────────────────
-
 @router.message(DoState.choosing)
 async def handle_choice(message: Message, state: FSMContext):
     choice = message.text.strip()
-
     if choice == "1":
         await _action_funnels(message, state)
     elif choice == "2":
-        await message.answer(
-            "Введи название экрана (допускаются опечатки):",
-            reply_markup=ReplyKeyboardRemove(),
-        )
+        await message.answer("Введи название экрана (допускаются опечатки):", reply_markup=ReplyKeyboardRemove())
         await state.set_state(DoState.waiting_screen)
     elif choice == "3":
         await _action_services(message, state)
@@ -97,8 +87,6 @@ async def handle_choice(message: Message, state: FSMContext):
         await message.answer("Введи цифру от 1 до 5.", reply_markup=_NUM_KEYBOARD)
 
 
-# ── action 1: funnels ─────────────────────────────────────────────────────────
-
 async def _action_funnels(message: Message, state: FSMContext):
     await state.clear()
     try:
@@ -114,11 +102,8 @@ async def _action_funnels(message: Message, state: FSMContext):
     lines = ["📋 *Все доступные экраны:*\n"]
     for i, f in enumerate(funnels, 1):
         lines.append(f"{i}. *{f['funnel_name']}*\n   └ {f['service_name']}")
-
     await message.answer("\n".join(lines), parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
 
-
-# ── action 2: screen timing (waiting_screen state) ───────────────────────────
 
 @router.message(DoState.waiting_screen)
 async def handle_screen_name(message: Message, state: FSMContext):
@@ -127,8 +112,7 @@ async def handle_screen_name(message: Message, state: FSMContext):
     try:
         data = await backend.get_daily_friction(funnel_name)
     except Exception as e:
-        err = str(e)
-        if "404" in err:
+        if "404" in str(e):
             await message.answer(f"Экран «{funnel_name}» не найден. Посмотри список через /do → 1.")
         else:
             await message.answer(f"Ошибка: {e}")
@@ -146,8 +130,6 @@ async def handle_screen_name(message: Message, state: FSMContext):
     )
 
 
-# ── action 3: services ────────────────────────────────────────────────────────
-
 async def _action_services(message: Message, state: FSMContext):
     await state.clear()
     try:
@@ -159,11 +141,8 @@ async def _action_services(message: Message, state: FSMContext):
     lines = ["🏦 *Доступные сервисы:*\n"]
     for i, s in enumerate(services, 1):
         lines.append(f"{i}. {s['service_name']} _{s['service_type']}_")
-
     await message.answer("\n".join(lines), parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
 
-
-# ── action 4: service usage (waiting_service state) ──────────────────────────
 
 @router.message(DoState.waiting_service)
 async def handle_service_input(message: Message, state: FSMContext):
@@ -184,8 +163,7 @@ async def handle_service_input(message: Message, state: FSMContext):
     try:
         data = await backend.get_service_usage(service_name, days)
     except Exception as e:
-        err = str(e)
-        if "404" in err:
+        if "404" in str(e):
             await message.answer(f"Сервис «{service_name}» не найден. Посмотри список через /do → 3.")
         else:
             await message.answer(f"Ошибка: {e}")
@@ -209,8 +187,6 @@ async def handle_service_input(message: Message, state: FSMContext):
         parse_mode="Markdown",
     )
 
-
-# ── action 5: industries ──────────────────────────────────────────────────────
 
 async def _action_industries(message: Message, state: FSMContext):
     await state.clear()
