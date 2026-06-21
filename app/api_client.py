@@ -69,6 +69,16 @@ class BackendClient:
             r.raise_for_status()
             return r.json()
 
+    async def execute_query(self, sql: str) -> dict:
+        async with httpx.AsyncClient() as c:
+            r = await c.post(
+                f"{self._base}/analytics/query",
+                json={"sql": sql},
+                timeout=30.0,
+            )
+            r.raise_for_status()
+            return r.json()
+
     # ── Alerts ─────────────────────────────────────────────────────────────────
 
     async def assign_alert(self, alert_id: str, department: str) -> dict:

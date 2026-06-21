@@ -47,7 +47,7 @@ def _get_nick(message: Message) -> str:
 
 
 def _get_first_name(message: Message) -> str:
-    return message.from_user.first_name
+    return message.from_user.first_name or _get_nick(message)
 
 
 @router.message(CommandStart())
