@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 
 import httpx
@@ -10,6 +9,9 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+_POLL_INTERVAL = 180  # 3 минуты
+_MAX_ALERTS = 3
+
 _SEVERITY_LABEL = {
     "low": "🟡 Low",
     "medium": "🟠 Medium",
@@ -18,13 +20,13 @@ _SEVERITY_LABEL = {
 }
 
 
-def _format_alert(alert: dict) -> str:
+def _format_alert(alert: dict, index: int, total_new: int) -> str:
     severity = _SEVERITY_LABEL.get(alert.get("severity", ""), alert.get("severity", ""))
-    msk_time = alert.get("detected_at_msk", "—")
+    header = f"⚠️ *Новая аномалия*" + (f" ({index}/{total_new})" if total_new > 1 else "")
     return (
-        f"⚠️ *Новая аномалия*\n\n"
+        f"{header}\n\n"
         f"ID: `{alert['alert_id']}`\n"
-        f"Время (МСК): {msk_time}\n"
+        f"Время (МСК): {alert['detected_at_msk']}\n"
         f"Тип: {alert['anomaly_type']}\n"
         f"Метрика: {alert['metric_name']}\n"
         f"Критичность: {severity}\n"
@@ -32,34 +34,53 @@ def _format_alert(alert: dict) -> str:
     )
 
 
-async def _broadcast(bot: Bot, alert: dict) -> None:
+async def _broadcast(bot: Bot, alerts: list[dict], total_new: int) -> None:
     try:
         users = await backend.get_all_users()
     except Exception as e:
         logger.error("Не удалось получить список пользователей: %s", e)
         return
-    text = _format_alert(alert)
+
     for user in users:
-        try:
-            await bot.send_message(user["chat_id"], text, parse_mode="Markdown")
-        except Exception as e:
-            logger.warning("chat_id=%s: %s", user["chat_id"], e)
+        for i, alert in enumerate(alerts, 1):
+            try:
+                await bot.send_message(
+                    user["chat_id"],
+                    _format_alert(alert, i, total_new),
+                    parse_mode="Markdown",
+                )
+            except Exception as e:
+                logger.warning("chat_id=%s: %s", user["chat_id"], e)
 
 
 async def listen_for_alerts(bot: Bot) -> None:
-    url = f"{settings.backend_url}/analytics/alerts/stream"
+    url = f"{settings.backend_url}/analytics/alerts/recent"
+    last_count: int | None = None
+
     while True:
         try:
-            logger.info("SSE: подключаемся к %s", url)
-            async with httpx.AsyncClient(timeout=None) as client:
-                async with client.stream("GET", url) as response:
-                    async for line in response.aiter_lines():
-                        if line.startswith("data: ") and len(line) > 6:
-                            try:
-                                alert = json.loads(line[6:])
-                                await _broadcast(bot, alert)
-                            except (json.JSONDecodeError, KeyError) as e:
-                                logger.warning("Не удалось разобрать событие: %s", e)
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                params = {"since_count": last_count or 0, "limit": _MAX_ALERTS}
+                r = await client.get(url, params=params)
+                r.raise_for_status()
+                data = r.json()
+
+            current_count = data["total_count"]
+            new_count = data["new_count"]
+
+            if last_count is None:
+                # первый запрос — просто запоминаем точку отсчёта
+                logger.info("SSE listener: стартовый счётчик = %d", current_count)
+                last_count = current_count
+            elif new_count > 0:
+                alerts = data["alerts"]
+                logger.info("Обнаружено %d новых аномалий, показываем %d", new_count, len(alerts))
+                await _broadcast(bot, alerts, new_count)
+                last_count = current_count
+            else:
+                logger.debug("Новых аномалий нет, счётчик = %d", current_count)
+
         except Exception as e:
-            logger.error("SSE прервано: %s. Переподключение через 10 сек.", e)
-            await asyncio.sleep(10)
+            logger.error("Ошибка при опросе аномалий: %s", e)
+
+        await asyncio.sleep(_POLL_INTERVAL)

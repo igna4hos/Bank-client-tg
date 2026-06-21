@@ -83,6 +83,16 @@ class BackendClient:
 
     # ── Alerts ─────────────────────────────────────────────────────────────────
 
+    async def get_recent_alerts(self, since_count: int = 0, limit: int = 3) -> dict:
+        async with httpx.AsyncClient() as c:
+            r = await c.get(
+                f"{self._base}/analytics/alerts/recent",
+                params={"since_count": since_count, "limit": limit},
+                timeout=15.0,
+            )
+            r.raise_for_status()
+            return r.json()
+
     async def assign_alert(self, alert_id: str, department: str) -> dict:
         async with httpx.AsyncClient() as c:
             r = await c.post(
